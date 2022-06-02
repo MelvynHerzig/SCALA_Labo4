@@ -1,5 +1,9 @@
 package Data
 
+import scala.concurrent.duration.*
+import scala.concurrent.Future
+import Utils.FutureOps.*
+
 /**
   * Custom exception class used when an invalid brand is used for a given product.
   *
@@ -35,6 +39,8 @@ trait ProductService:
     */
   def getDefaultBrand(product: ProductName): BrandName
 
+  def prepare(product: ProductName, brand: Option[BrandName]) : Future[Unit]
+
 end ProductService
 
 
@@ -44,20 +50,20 @@ class ProductImpl extends ProductService :
     * Default brand and prices map for beers.
     */
   val beer: ProductInformation = ProductInformation("boxer", Map(
-    "farmer" -> 1.0,
-    "boxer" -> 1.0,
-    "wittekop" -> 2.0,
-    "punkipa" -> 3.0,
-    "jackhammer" -> 3.0,
-    "tenebreuse" -> 4.0
+    "farmer" -> (1.0, DeliveryInformation(1,2,0.2)),
+    "boxer" -> (1.0, DeliveryInformation(1,2,0.2)),
+    "wittekop" -> (2.0, DeliveryInformation(1,2,0.2)),
+    "punkipa" -> (3.0, DeliveryInformation(1,2,0.2)),
+    "jackhammer" -> (3.0, DeliveryInformation(1,2,0.2)),
+    "tenebreuse" -> (4.0, DeliveryInformation(1,2,0.2))
   ))
 
   /**
     * Default brand and prices map for croissants
     */
   val croissant: ProductInformation = ProductInformation("maison", Map(
-    "maison" -> 2.0,
-    "cailler" -> 2.0
+    "maison" -> (2.0, DeliveryInformation(1,2,3)),
+    "cailler" -> (2.0, DeliveryInformation(1,2,3))
   ))
 
   /**
@@ -80,6 +86,11 @@ class ProductImpl extends ProductService :
   def getDefaultBrand(product: ProductName): BrandName =
     getProductInformations(product).getDefaultBrand
   end getDefaultBrand
+
+  def prepare(product: ProductName, brand: Option[BrandName]): Future[Unit] =
+    randomSchedule(x, y , z)
+  end prepare
+
 
 end ProductImpl
 /**
@@ -118,3 +129,6 @@ case class ProductInformation(private val defaultBrand: String, private val pric
   def getDefaultBrand: BrandName = defaultBrand
 
 end ProductInformation
+
+
+case class DeliveryInformation(mean: Duration, std: Duration, successRate: Double)

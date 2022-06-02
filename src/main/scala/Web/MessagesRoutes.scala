@@ -1,13 +1,14 @@
 package Web
 
-import Chat.ExprTree.Identification
+import Chat.ExprTree.{Command, Identification}
 import Chat.{AnalyzerService, ExprTree, Parser, TokenizerService}
 import Data.{AccountService, MessageService, Session, SessionService}
 import cask.WsChannelActor
 import io.undertow.websockets.WebSocketConnectionCallback
 import castor.Context.Simple.global
 import sourcecode.Text.generate
-import scala.collection.mutable._
+
+import scala.collection.mutable.*
 
 /**
   * Assembles the routes dealing with the message board:
@@ -139,8 +140,11 @@ class MessagesRoutes(tokenizerSvc: TokenizerService,
                 val expr = new Parser(tokenized).parsePhrases()
 
                 expr match
-                    case Identification(_) => // Do no analyze Identification, user has been identified on login/register.
+                    case Identification(_) => // Do not analyze Identification, user has been identified on login/register.
                         botAnswersToUser(message, mention, Some(expr), "Bonjour")(session)
+
+                    case Command(products) => 
+                        
 
                     case _ => // Other actions.
                         val answer = s"@${session.getCurrentUser.get} ${analyzerSvc.reply(session)(expr)}"
