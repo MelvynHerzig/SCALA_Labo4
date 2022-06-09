@@ -2,7 +2,9 @@ package Data
 
 import scala.concurrent.duration.*
 import scala.concurrent.Future
-import Utils.FutureOps.*
+import Utils.FutureOps.randomSchedule
+
+import java.lang
 
 /**
   * Custom exception class used when an invalid brand is used for a given product.
@@ -39,7 +41,7 @@ trait ProductService:
     */
   def getDefaultBrand(product: ProductName): BrandName
 
-  def prepare(product: ProductName, brand: Option[BrandName]) : Future[Unit]
+  def prepare(product: ProductName, brand: Option[BrandName]): Future[Unit]
 
 end ProductService
 
@@ -50,20 +52,20 @@ class ProductImpl extends ProductService :
     * Default brand and prices map for beers.
     */
   val beer: ProductInformation = ProductInformation("boxer", Map(
-    "farmer" -> (1.0, DeliveryInformation(1,2,0.2)),
-    "boxer" -> (1.0, DeliveryInformation(1,2,0.2)),
-    "wittekop" -> (2.0, DeliveryInformation(1,2,0.2)),
-    "punkipa" -> (3.0, DeliveryInformation(1,2,0.2)),
-    "jackhammer" -> (3.0, DeliveryInformation(1,2,0.2)),
-    "tenebreuse" -> (4.0, DeliveryInformation(1,2,0.2))
+    "farmer" -> (1.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 0.2)),
+    "boxer" -> (1.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 0.2)),
+    "wittekop" -> (2.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 0.2)),
+    "punkipa" -> (3.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 0.2)),
+    "jackhammer" -> (3.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 0.2)),
+    "tenebreuse" -> (4.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 0.2))
   ))
 
   /**
     * Default brand and prices map for croissants
     */
   val croissant: ProductInformation = ProductInformation("maison", Map(
-    "maison" -> (2.0, DeliveryInformation(1,2,3)),
-    "cailler" -> (2.0, DeliveryInformation(1,2,3))
+    "maison" -> (2.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 3)),
+    "cailler" -> (2.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 3))
   ))
 
   /**
@@ -88,18 +90,20 @@ class ProductImpl extends ProductService :
   end getDefaultBrand
 
   def prepare(product: ProductName, brand: Option[BrandName]): Future[Unit] =
-    randomSchedule(x, y , z)
+    val deliveryInfo = getProductInformations(product).getDeliveryInformation(brand)
+    randomSchedule(deliveryInfo.mean, deliveryInfo.std, deliveryInfo.successRate)
   end prepare
 
 
 end ProductImpl
+
 /**
   * Class in charge of storing product information.
   *
   * @param defaultBrand Default brand name of the product.
-  * @param prices       Default prices for each brand of the product.
+  * @param informations Default prices and deliveryInformation for each brand of the product.
   */
-case class ProductInformation(private val defaultBrand: String, private val prices: Map[String, Double]):
+case class ProductInformation(private val defaultBrand: String, private val informations: Map[String, (Double, DeliveryInformation)]):
 
   /**
     * Alias, a brand name is a String
@@ -114,11 +118,11 @@ case class ProductInformation(private val defaultBrand: String, private val pric
     * @throws InvalidBrandException when the brand doesn't exist for the product.
     */
   def getPrice(brand: Option[BrandName]): Double =
-    if !brand.isDefined then
-      prices(getDefaultBrand)
-    else if !prices.contains(brand.get) then
+    if brand.isEmpty then
+      informations(getDefaultBrand)._1
+    else if !informations.contains(brand.get) then
       throw new InvalidBrandException("Invalid brand name for this product")
-    else prices(brand.get)
+    else informations(brand.get)._1
   end getPrice
 
   /**
@@ -127,6 +131,14 @@ case class ProductInformation(private val defaultBrand: String, private val pric
     * @return Returns the brand name.
     */
   def getDefaultBrand: BrandName = defaultBrand
+
+  def getDeliveryInformation(brand: Option[BrandName]): DeliveryInformation =
+    if brand.isEmpty then
+      informations(getDefaultBrand)._2
+    else if !informations.contains(brand.get) then
+      throw new InvalidBrandException("Invalid brand name for this product")
+    else informations(brand.get)._2
+  end getDeliveryInformation
 
 end ProductInformation
 
