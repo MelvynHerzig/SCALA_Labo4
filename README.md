@@ -33,7 +33,7 @@ Nous avons étendu cette structure pour y inclure le temps de préparation ainsi
   ))
 ```
 
-En conséquences dans productImpl, nous avons ajouté une méthode prepare qui permet de lancer la préparation d'un produit donné.
+En conséquence dans productImpl, nous avons ajouté une méthode prepare qui permet de lancer la préparation d'un produit donné.
 
 ```
   /**
@@ -89,9 +89,9 @@ Pour ce faire, nous avons créé la méthode prepareCommand:
   end prepareCommand
 ```
 
-Cette méthode itère à travers les OR et les AND pour lancer la préparation des produits. Cette méthode à l'avantage de retourner un Future[ExprTree] ce qui nous permet d'utiliser les méthodes "reply" et "computePrice" une fois le futur completé. La difficulté principale a été de traité les AND car ils se comportent différement en fonction du nombre de produits qui ont été préparé avec succès.
+Cette méthode itère à travers les OR et les AND pour lancer la préparation des produits. Cette méthode à l'avantage de retourner un Future[ExprTree] ce qui nous permet d'utiliser les méthodes "reply" et "computePrice" une fois le futur complété. La difficulté principale a été de traiter les AND, car ils se comportent différemment en fonction du nombre de produits qui ont été préparés avec succès.
 
-Ensuite, nous avons modifié le type de retour de la méthode reply. Avant elle renvoyait un "String", désormais elle retourne un "(String, Option[Future[String]])". La première valeur du tuple est la réponse du bot qui doit être envoyé directement à l'utilisateur. La seconde valeur est une réponse optionnelle délayée pour le client. Elle est optionnelle car elle est utilisée uniquement pour le traitement d'une commande.
+Ensuite, nous avons modifié le type de retour de la méthode reply. Avant elle renvoyait un "String", désormais elle retourne un "(String, Option[Future[String]])". La première valeur du tuple est la réponse du bot qui doit être envoyé directement à l'utilisateur. La seconde valeur est une réponse optionnelle délayée pour le client. Elle est optionnelle, car elle est utilisée uniquement pour le traitement d'une commande.
 
 La dernière modification a lieu dans la gestion d'une commande dans reply.
 
@@ -128,18 +128,18 @@ Dans cette version, le processus est sensiblement différent.
   [...]  
 ```
 
-La première étape consite à vérifier que le montant soit apriori suffisant pour traiter la commande (si l'utilisateur est authentifié). Si et seulement si le solde le permet, la préparation commence. Une fois le future completé, il y a trois cas de figure possibles:
+La première étape consiste à vérifier que le montant soit apriori suffisant pour traiter la commande (si l'utilisateur est authentifié). Si et seulement si le solde le permet, la préparation commence. Une fois le futur complété, il y a trois cas de figure possibles:
 
 * Le futur est un succès avec l'intégralité de la commande qui a pu être préparé
 * Le futur est un succès avec une partie de la commande qui a pu être préparé
-* Le futur est un échec car rien n'a pu être préparé
+* Le futur est un échec, car rien n'a pu être préparé
 
 Dans chacun de ces cas, nous préparons la string qui va être utilisée pour le futur de la seconde valeur du tuple de réponse de reply.
-Il y a une spécificité, dans le cas où le futur est un succès (et donc qu'une partie de la commande peut être achetée) nous effectuons l'exécution dans un try catch. En effet, la méthode purchase a été modifiée pour retourner une exception si le montant à débiter est supérieur au solde. Cette modification a été faite car nous n'avons aucune garantie que le solde n'a pas été modifié entre le moment ou nous vérifions que l'utilisateur a assez de crédit (avant la préparation) et le moment où il est réellement débité (après la préparation). Nous aurions pu nous contenter d'abandonner le "if" préalable mais cela ne nous semblait pas logique de potentiellement lancer la préparation de commandes trop coûteuses.
+Il y a une spécificité, dans le cas où le futur est un succès (et donc qu'une partie de la commande peut être achetée) nous effectuons l'exécution dans un try catch. En effet, la méthode purchase a été modifiée pour retourner une exception si le montant à débiter est supérieur au solde. Cette modification a été faite, car nous n'avons aucune garantie que le solde n'a pas été modifié entre le moment ou nous vérifions que l'utilisateur a assez de crédit (avant la préparation) et le moment où il est réellement débité (après la préparation). Nous aurions pu nous contenter d'abandonner le "if" préalable, mais cela ne nous semblait pas logique de potentiellement lancer la préparation de commandes trop couteuses.
 
 <h3> MessagesRoutes </h3>
 
-Nous avons modifié notre méthode handleMessage dans le cas où le bot est mentionné. Avant, tout était traité de la même manière mise à part les identifications qui étaient ignorées. Désormais, nous avons différencié le traitement des commandes car cela nécessite de gérer une réponse différée. 
+Nous avons modifié notre méthode handleMessage dans le cas où le bot est mentionné. Avant, tout était traité de la même manière mise à part les identifications qui étaient ignorées. Désormais, nous avons différencié le traitement des commandes, car cela nécessite de gérer une réponse différée. 
 
 ```
 [...]
@@ -167,7 +167,7 @@ case Command(products) => // Command received
 [...]
 ```
 
-Nous récupérons les réponses de la méthode "reply" de l'analyzerService. Nous séparons les deux réponse: la directe et la délayée. Nous envoyons la directe puis, lorsque la réponse délayée est prête (futur complété ) nous envoyons le status final du traîtement de la commande.
+Nous récupérons les réponses de la méthode "reply" de l'analyzerService. Nous séparons les deux réponses: la directe et la délayée. Nous envoyons la directe puis lorsque la réponse délayée est prête (futur complété ) nous envoyons le statut final du traitement de la commande.
 
 
 
