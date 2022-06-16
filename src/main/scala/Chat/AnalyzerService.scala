@@ -26,7 +26,12 @@ class AnalyzerService(productSvc: ProductService,
     case _ => 0
   end computePrice
 
-
+  /**
+    * For an exprTree (products) of a command, prepare it (them).
+    * @param t Command exprTree (product)
+    * @return If some products succeeded, return a future successful with a resulting
+    *         exprTree. If all the products fail, return a future failure.
+    */
   def prepareCommand(t: ExprTree) : Future[ExprTree] =
     t match
 
@@ -79,15 +84,20 @@ class AnalyzerService(productSvc: ProductService,
           else
             val preparationAnswer = prepareCommand(products).map(t => {
               val realPrice = computePrice(t)
-              accountSvc.purchase(user.get, realPrice)
-              if realPrice == price then
-                s"La commande de ${inner(products)} est prête. Cela coute ${realPrice}"
-              else
-                s"La commande de ${inner(products)} est partiellement prête. Voici ${inner(t)}. Cela coute ${realPrice}."
-            }).recover(_ => s"La commande de ${inner(products)} ne peut pas être délivrée")
-            //accountSvc.purchase(user.get, price)
-            (s"Votre commande est en cours de préparation : ${inner(products)._1}", Some(preparationAnswer)) // TODO : add a future here
-            //s"Voici donc ${inner(products)} ! Cela coûte $price et votre nouveau solde est de ${accountSvc.getAccountBalance(user.get)}"
+              try{
+                accountSvc.purchase(user.get, realPrice)
+                if realPrice == price then
+                  s"La commande de ${inner(products)._1} est prête. Cela coute $realPrice"
+                else
+                  s"La commande de ${inner(products)._1} est partiellement prête. Voici ${inner(t)._1}. Cela coute $realPrice."
+              }catch{
+                case e: IllegalArgumentException => "Le montant actuel de votre solde est insuffisant"
+              }
+
+            }).recover(_ => s"La commande de ${inner(products)._1} ne peut pas être délivrée")
+
+            (s"Votre commande est en cours de préparation : ${inner(products)._1}", Some(preparationAnswer))
+
         else (s"Veuillez d'abord vous identifier", None)
 
       case Balance() =>
@@ -99,8 +109,8 @@ class AnalyzerService(productSvc: ProductService,
 
       case Product(name, brand, quantity) => (s"$quantity $name ${brand.getOrElse("")}", None)
 
-      case Or(lExp, rExp) => (if computePrice(lExp) <= computePrice(rExp) then s"${inner(lExp)}" else s"${inner(rExp)}", None)
-      case And(lExp, rExp) => (s"${inner(lExp)} et ${inner(rExp)}", None)
+      case Or(lExp, rExp) => (if computePrice(lExp) <= computePrice(rExp) then s"${inner(lExp)._1}" else s"${inner(rExp)._1}", None)
+      case And(lExp, rExp) => (s"${inner(lExp)._1} et ${inner(rExp)._1}", None)
   end reply
 
   private def futureToFutureTry[T](f: Future[T]): Future[Try[T]] =

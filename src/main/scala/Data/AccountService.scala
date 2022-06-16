@@ -1,6 +1,6 @@
 package Data
 
-import scala.collection.mutable
+import scala.collection.concurrent.TrieMap
 
 trait AccountService:
   /**
@@ -34,7 +34,7 @@ trait AccountService:
 
 class AccountImpl extends AccountService:
   
-  private val accounts = mutable.Map[String, Double]()
+  private val accounts = TrieMap[String, Double]()
 
   def getAccountBalance(user: String): Double =
     accounts(user)
@@ -49,8 +49,7 @@ class AccountImpl extends AccountService:
   end isAccountExisting
 
   def purchase(user: String, amount: Double): Double =
-    accounts(user) -= amount
-    accounts(user)
+    accounts.updateWith(user)(current => if current.get >= amount then Some(current.get - amount) else throw IllegalArgumentException()).get
   end purchase
   
 end AccountImpl

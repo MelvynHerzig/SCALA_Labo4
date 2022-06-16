@@ -41,6 +41,13 @@ trait ProductService:
     */
   def getDefaultBrand(product: ProductName): BrandName
 
+  /**
+    * Launch the preparation of a given product.
+    * @param product Product to prepare.
+    * @param brand Product's brand (or default brand if empty).
+    * @return Return a future that will be successful if the preparation went well
+    *         or a future failure if the preparation failed.
+    */
   def prepare(product: ProductName, brand: Option[BrandName]): Future[Unit]
 
 end ProductService
@@ -52,20 +59,20 @@ class ProductImpl extends ProductService :
     * Default brand and prices map for beers.
     */
   val beer: ProductInformation = ProductInformation("boxer", Map(
-    "farmer" -> (1.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 0.2)),
-    "boxer" -> (1.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 0.2)),
-    "wittekop" -> (2.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 0.2)),
-    "punkipa" -> (3.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 0.2)),
-    "jackhammer" -> (3.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 0.2)),
-    "tenebreuse" -> (4.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 0.2))
+    "farmer" -> (1.0, DeliveryInformation(Duration(1, SECONDS), Duration(0.5, SECONDS), 0.5)),
+    "boxer" -> (1.0, DeliveryInformation(Duration(1.5, SECONDS), Duration(0.5, SECONDS), 0.5)),
+    "wittekop" -> (2.0, DeliveryInformation(Duration(2, SECONDS), Duration(0.5, SECONDS), 0.5)),
+    "punkipa" -> (3.0, DeliveryInformation(Duration(2.5, SECONDS), Duration(0.5, SECONDS), 0.5)),
+    "jackhammer" -> (3.0, DeliveryInformation(Duration(2, SECONDS), Duration(0.5, SECONDS), 0.5)),
+    "tenebreuse" -> (4.0, DeliveryInformation(Duration(1.5, SECONDS), Duration(0.5, SECONDS), 0.5))
   ))
 
   /**
     * Default brand and prices map for croissants
     */
   val croissant: ProductInformation = ProductInformation("maison", Map(
-    "maison" -> (2.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 3)),
-    "cailler" -> (2.0, DeliveryInformation(Duration(1, SECONDS), Duration(2, SECONDS), 3))
+    "maison" -> (2.0, DeliveryInformation(Duration(2, SECONDS), Duration(0.5, SECONDS), 0.5)),
+    "cailler" -> (2.0, DeliveryInformation(Duration(6, SECONDS), Duration(0.5, SECONDS), 0.5))
   ))
 
   /**
@@ -93,7 +100,6 @@ class ProductImpl extends ProductService :
     val deliveryInfo = getProductInformations(product).getDeliveryInformation(brand)
     randomSchedule(deliveryInfo.mean, deliveryInfo.std, deliveryInfo.successRate)
   end prepare
-
 
 end ProductImpl
 
@@ -132,6 +138,11 @@ case class ProductInformation(private val defaultBrand: String, private val info
     */
   def getDefaultBrand: BrandName = defaultBrand
 
+  /**
+    * Gets the delivery information of a product.
+    * @param brand Optional brand, if empty uses the default brand.
+    * @return Return the delivery information object that correspond to the given brand.
+    */
   def getDeliveryInformation(brand: Option[BrandName]): DeliveryInformation =
     if brand.isEmpty then
       informations(getDefaultBrand)._2
@@ -142,5 +153,11 @@ case class ProductInformation(private val defaultBrand: String, private val info
 
 end ProductInformation
 
-
+/**
+  * Case class that stores the mean duration, the duration variation and the success rate for
+  * a product.
+  * @param mean Mean duration.
+  * @param std Duration standard variation.
+  * @param successRate Success rate [0.0, 1.0]
+  */
 case class DeliveryInformation(mean: Duration, std: Duration, successRate: Double)

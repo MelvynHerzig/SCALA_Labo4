@@ -145,20 +145,30 @@ class MessagesRoutes(tokenizerSvc: TokenizerService,
                     case Identification(_) => // Do not analyze Identification, user has been identified on login/register.
                         botAnswersToUser(message, mention, Some(expr), "Bonjour")(session)
 
-                    case Command(products) =>
+                    case Command(products) => // Command received
+
+                        // Get the replies
                         val replyResult = analyzerSvc.reply(session)(Command(products))
 
+                        // Extract the one to answer directly
                         val directAnswer = replyResult._1
-                        botAnswersToUser(message, mention, Some(expr), directAnswer)(session)
+                        val idRequest = botAnswersToUser(message, mention, Some(expr), directAnswer)(session)
 
+                        // Extract the one to send when the preparation is over.
                         val futureAnswer = replyResult._2
-                        futureAnswer.get.onComplete {
-                            case scala.util.Success(products) => botAnswersToUser(message, mention, Some(expr), products)(session)
-                            case scala.util.Failure(e) => botAnswersToUser(message, mention, Some(expr), "Je n'ai pas compris")(session)
-                        }
+                        // For the "completion" of the future we are using a map (for some reasons ?¿?¿) because
+                        // the instructions of the laboratory tell to not use "onComplete" which would have
+                        // been appropriated in the current case (or at least we don't see any reason
+                        // for it to be unappropriated).
+                        futureAnswer.get.map(products => {
+                            msgSvc.add("bot", Layouts.messageContent(products), session.getCurrentUser, None, Some(idRequest))
+
+                            val response = latestMessagesAsString(20)
+                            subscribers.foreach(sendMessageToClient(_, response))
+                        })
 
                     case _ => // Other actions.
-                        val answer = s"@${session.getCurrentUser.get} ${analyzerSvc.reply(session)(expr)}"
+                        val answer = s"@${session.getCurrentUser.get} ${analyzerSvc.reply(session)(expr)._1}"
                         botAnswersToUser(message, mention, Some(expr), answer)(session)
 
             } catch {
@@ -184,6 +194,7 @@ class MessagesRoutes(tokenizerSvc: TokenizerService,
     private def botAnswersToUser(message: String, mention: Option[String], expr: Option[ExprTree], botAnswer: String)(session : Session) =
         val id = msgSvc.add(session.getCurrentUser.get, Layouts.messageContent(message), mention, expr)
         msgSvc.add("bot", Layouts.messageContent(botAnswer), session.getCurrentUser, None, Some(id))
+        id
     end botAnswersToUser
 
     /**
