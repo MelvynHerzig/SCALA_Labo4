@@ -84,9 +84,9 @@ class AnalyzerService(productSvc: ProductService,
                 s"La commande de ${inner(products)} est prête. Cela coute ${realPrice}"
               else
                 s"La commande de ${inner(products)} est partiellement prête. Voici ${inner(t)}. Cela coute ${realPrice}."
-            })
+            }).recover(_ => s"La commande de ${inner(products)} ne peut pas être délivrée")
             //accountSvc.purchase(user.get, price)
-            (s"Votre commande est en cours de préparation : ${inner(products)}", Some(preparationAnswer)) // TODO : add a future here
+            (s"Votre commande est en cours de préparation : ${inner(products)._1}", Some(preparationAnswer)) // TODO : add a future here
             //s"Voici donc ${inner(products)} ! Cela coûte $price et votre nouveau solde est de ${accountSvc.getAccountBalance(user.get)}"
         else (s"Veuillez d'abord vous identifier", None)
 
