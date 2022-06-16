@@ -4,11 +4,13 @@ import Chat.ExprTree.{Command, Identification}
 import Chat.{AnalyzerService, ExprTree, Parser, TokenizerService}
 import Data.{AccountService, MessageService, Session, SessionService}
 import cask.WsChannelActor
+import cask.router.Result.Success
 import io.undertow.websockets.WebSocketConnectionCallback
 import castor.Context.Simple.global
 import sourcecode.Text.generate
 
 import scala.collection.mutable.*
+import scala.util.Failure
 
 /**
   * Assembles the routes dealing with the message board:
@@ -143,8 +145,17 @@ class MessagesRoutes(tokenizerSvc: TokenizerService,
                     case Identification(_) => // Do not analyze Identification, user has been identified on login/register.
                         botAnswersToUser(message, mention, Some(expr), "Bonjour")(session)
 
-                    case Command(products) => 
-                        
+                    case Command(products) =>
+                        val replyResult = analyzerSvc.reply(session)(Command(products))
+
+                        val directAnswer = replyResult._1
+                        botAnswersToUser(message, mention, Some(expr), directAnswer)(session)
+
+                        val futureAnswer = replyResult._2
+                        futureAnswer.get.onComplete {
+                            case scala.util.Success(products) => botAnswersToUser(message, mention, Some(expr), products)(session)
+                            case scala.util.Failure(e) => botAnswersToUser(message, mention, Some(expr), "Je n'ai pas compris")(session)
+                        }
 
                     case _ => // Other actions.
                         val answer = s"@${session.getCurrentUser.get} ${analyzerSvc.reply(session)(expr)}"

@@ -3,7 +3,7 @@ import Chat.ExprTree.{And, Balance, Command, Identification, Or, Price, Product}
 import Data.{AccountService, ProductService, Session}
 
 import scala.concurrent.Future
-import scala.util.Success
+import scala.util.{Success, Failure, Try}
 
 class AnalyzerService(productSvc: ProductService,
                       accountSvc: AccountService):
@@ -27,17 +27,28 @@ class AnalyzerService(productSvc: ProductService,
   end computePrice
 
 
-  def prepareCommand(t: ExprTree) : Future[List[Product]] =
+  def prepareCommand(t: ExprTree) : Future[ExprTree] =
     t match
-      case Command(products) => ???
-      case Product(name, brand, quantity) => ??? //productSvc.prepare(name, brand)
-      case And(lExp, rExp) => Future{
-        var productList = List[Product]()
-        // https://stackoverflow.com/questions/20874186/scala-listfuture-to-futurelist-disregarding-failed-futures
-        List(prepareCommand(lExp), prepareCommand(rExp))
 
+      case Product(name, brand, quantity) =>
+        productSvc.prepare(name, brand).flatMap(_ => Future.successful(Product(name, brand, quantity)))
 
-      } // prepareCommand(lExp).flatMap(l => prepareCommand(rExp).map(r => l ++ r))
+      case And(lExp, rExp) =>
+
+        val listOfFuturesOfExprtree = List(prepareCommand(lExp), prepareCommand(rExp)) // List[Future[ExprTree]]
+        val listOfFutureTrysOfExprtree = listOfFuturesOfExprtree.map(futureToFutureTry) // List[Future[Try[ExprTree]]]
+
+        val futureListOfTrys = Future.sequence(listOfFutureTrysOfExprtree) // Future[List[Try[ExprTree]]]
+        val futureListOfSuccesses = futureListOfTrys.map(_.filter(_.isSuccess))
+
+        futureListOfSuccesses.flatMap(listOfTries => {
+          listOfTries.size match {
+            case 0 => Future.failed(null)
+            case 1 => Future.successful(listOfTries.head.get)
+            case 2 => Future.successful(And(listOfTries.head.get, listOfTries.last.get))
+          }
+        })
+
       case Or(lExp, rExp) => if computePrice(lExp) <= computePrice(rExp) then prepareCommand(lExp) else prepareCommand(rExp)
   end prepareCommand
 
@@ -66,8 +77,16 @@ class AnalyzerService(productSvc: ProductService,
           if price > accountSvc.getAccountBalance(user.get) then
             ("Le montant actuel de votre solde est insuffisant", None)
           else
+            val preparationAnswer = prepareCommand(products).map(t => {
+              val realPrice = computePrice(t)
+              accountSvc.purchase(user.get, realPrice)
+              if realPrice == price then
+                s"La commande de ${inner(products)} est prête. Cela coute ${realPrice}"
+              else
+                s"La commande de ${inner(products)} est partiellement prête. Voici ${inner(t)}. Cela coute ${realPrice}."
+            })
             //accountSvc.purchase(user.get, price)
-            (s"Votre commande est en cours de préparation : ${inner(products)}", None) // TODO : add a future here
+            (s"Votre commande est en cours de préparation : ${inner(products)}", Some(preparationAnswer)) // TODO : add a future here
             //s"Voici donc ${inner(products)} ! Cela coûte $price et votre nouveau solde est de ${accountSvc.getAccountBalance(user.get)}"
         else (s"Veuillez d'abord vous identifier", None)
 
@@ -83,4 +102,9 @@ class AnalyzerService(productSvc: ProductService,
       case Or(lExp, rExp) => (if computePrice(lExp) <= computePrice(rExp) then s"${inner(lExp)}" else s"${inner(rExp)}", None)
       case And(lExp, rExp) => (s"${inner(lExp)} et ${inner(rExp)}", None)
   end reply
+
+  private def futureToFutureTry[T](f: Future[T]): Future[Try[T]] =
+    f.map(Success(_)).recover { case x => Failure(x)}
+  end futureToFutureTry
+
 end AnalyzerService
